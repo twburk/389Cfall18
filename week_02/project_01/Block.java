@@ -4,6 +4,7 @@ import java.nio.ByteBuffer;
 import java.nio.ByteOrder;
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.*;
 
 public class Block {
 
@@ -50,7 +51,28 @@ public class Block {
    */
   public byte[] buildMerkleTree(ArrayList<byte[]> txs) {
     /* Your code here */
-    return null;
+    /*System.arraycopy*/
+    if(txs.size() == 1){
+      return txs.get(0);
+    }else{
+      ArrayList<byte[]> newTxs = new ArrayList<>();
+      for(int i = 0; i < txs.size(); i= i+2){
+        byte[] first = txs.get(i);
+        byte[] second = txs.get(i+1);
+
+        byte[] concat = new byte[first.length + second.length]; 
+
+        System.arraycopy(first, 0, concat, 0, first.length);
+        System.arraycopy(second, 0, concat, first.length, second.length);
+
+        byte[] hash = Hashing.sha256().hashBytes(concat).asBytes();
+
+        newTxs.add(hash);
+      }
+
+      return buildMerkleTree(newTxs);
+    }
+    
   }
 
   /* Build your block here. You will need to create a Merkle
@@ -66,6 +88,31 @@ public class Block {
    */
   public void buildBlock() {
     /* Your code here */
+    this.merkleTree = buildMerkleTree(this.txs);
+    
+    int tempNonce = 0;
+    boolean found = false;
+    
+    do {
+    	byte[] byteNonce = intToByteArray(tempNonce);
+    	byte [] temp = new byte[this.prevBlockHash.length + this.merkleTree.length + byteNonce.length];
+    	
+    	System.arraycopy(this.prevBlockHash, 0, temp, 0, this.prevBlockHash.length);
+    	System.arraycopy(this.merkleTree, 0, temp, this.prevBlockHash.length, this.merkleTree.length);
+    	System.arraycopy(byteNonce, 0, temp, this.prevBlockHash.length+this.merkleTree.length, byteNonce.length);
+    	
+    	byte[] hash = Hashing.sha256().hashBytes(temp).asBytes();
+    	
+    	if(hash[0] == 0 && hash[1] == 0) {
+    		this.blockHash = hash;
+    		this.nonce = tempNonce;
+    		found = true;
+    	}else {
+    		tempNonce++;
+    	}
+    	
+    }while(!found && tempNonce < 100000);
+    
   }
 
   /* This method is intended to validate blocks. Remember that for a block
@@ -75,7 +122,29 @@ public class Block {
    */
   public boolean isValidBlock(byte[] prevBlockHash, byte[] merkleTree, int nonce, byte[] target) {
     /* Your code here */
-    return false;
+	  byte[] byteNonce = intToByteArray(nonce);
+	  byte[] temp = new byte[prevBlockHash.length + merkleTree.length + byteNonce.length];
+	  
+	  System.arraycopy(prevBlockHash, 0, temp, 0, prevBlockHash.length);
+  	  System.arraycopy(merkleTree, 0, temp, prevBlockHash.length, merkleTree.length);
+  	  System.arraycopy(byteNonce, 0, temp, prevBlockHash.length+merkleTree.length, byteNonce.length);
+  	
+  	  byte[] hash = Hashing.sha256().hashBytes(temp).asBytes();
+  	  
+  	  //if(hash[0] == 0 && hash[1] == 0 && hash == target) {
+  		//  return true;
+  	  //}else {
+  		//  return false;
+  	  //}
+  	  if(Arrays.equals(target, hash)) {
+  		  if(hash[0] == 0 && hash[1] == 0) {
+  			  return true;
+  		  }else {
+  			  return false;
+  		  }
+  	  }else {
+  		  return false;
+  	  }
   }
 
   public int getNonce() {
